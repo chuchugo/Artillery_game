@@ -3,7 +3,7 @@ from game import views
 
 urlpatterns = [
     path('home', views.home, name='home'),
-    path('get_trajectory_data', views.get_trajectory_data, name='get_trajectory_data'),
+    path('get-trajectory-data', views.get_trajectory_data, name='get-trajectory-data'),
 
     ]
 

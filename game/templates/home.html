@@ -9,18 +9,21 @@
         crossorigin="anonymous"></script>   
     <title> Document </title>
 </head>
-<canvas id="trajectory-canvas" width="800" height="400"></canvas>
+
+
+
+<canvas id="trajectory-canvas" width="1000" height="500" 
+    style = "position:relative; left:50px; top:50px; background-color:yellow;"></canvas>
     <script>
     var balldata=[];
     var refreshIntervalId=null;
     $.ajax({
-        url: '/game/get_trajectory_data',
+        url: '/game/get-trajectory-data',
         success: function(data) {
             // The data is a dictionary of timestamp -> position
             // The position is a dictionary of x and y coordinates
              // Start the animation
-            console.log(data);
-            refreshIntervalId = setInterval(function(){updateBallPosition(data)}, 1000/30);
+            refreshIntervalId = setInterval(function(){updateBallPosition(data)}, 1000*0.1);
         }
     });
  
@@ -35,11 +38,10 @@
 
     var currentData  = ballData[currentDataIndex];
     // Calculate the position of the ball based on the time elapsed
-    console.log(currentDataIndex);
-    var x = currentData.x; 
-    var y = currentData.y; 
-    console.log(x);
-
+    var t = currentData.t;
+    var x = currentData.x / 2; 
+    var y = 500 - currentData.y / 2; 
+    console.log("t","x",x,"y",y)
     // Clear the canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -51,11 +53,8 @@
     // Update the currentDataIndex if we've reached the end of the data
     currentDataIndex += 1;
     var length = Object.keys(ballData).length;
-    console.log(length);
     
     if (currentDataIndex >= length) {
-        console.log(currentDataIndex,length)
-        console.log("clearing interval")
         clearInterval(refreshIntervalId);
         console.log("cleared interval",refreshIntervalId)
     }
