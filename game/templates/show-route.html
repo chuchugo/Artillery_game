@@ -1,0 +1,52 @@
+<!doctype html>
+{% extends "game/home.html" %}
+
+
+<script>
+    var balldata=[];
+    var refreshIntervalId=null;
+    $.ajax({
+        url: '/game/get-trajectory-data',
+        success: function(data) {
+            // The data is a dictionary of timestamp -> position
+            // The position is a dictionary of x and y coordinates
+             // Start the animation
+            refreshIntervalId = setInterval(function(){updateBallPosition(data)}, 1000*0.1);
+        }
+    });
+ 
+    var canvas = document.getElementById('trajectory-canvas');
+    var ctx = canvas.getContext('2d');
+    var ballRadius = 10;
+    var currentFrame = 0;
+    var timeStep = 1000 / 30;
+    var currentDataIndex = 1;
+
+    function updateBallPosition(ballData) {
+
+    var currentData  = ballData[currentDataIndex];
+    // Calculate the position of the ball based on the time elapsed
+    var t = currentData.t;
+    var x = currentData.x / 2; 
+    var y = 500 - currentData.y / 2; 
+    console.log("t",t,"x",x,"y",y)
+    // Clear the canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw the ball at the new position
+    ctx.beginPath();
+    ctx.arc(x, y, ballRadius, 0, 2 * Math.PI);
+    ctx.fill();
+
+    // Update the currentDataIndex if we've reached the end of the data
+    currentDataIndex += 1;
+    var length = Object.keys(ballData).length;
+    
+    if (currentDataIndex >= length) {
+        clearInterval(refreshIntervalId);
+        console.log("cleared interval",refreshIntervalId)
+    }
+    }
+     </script>
+
+</html>

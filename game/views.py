@@ -3,54 +3,121 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, Http404,JsonResponse
 from django.urls import reverse
 #math module for calculating trajectory
-import math 
-
+import math, uuid
 from django.core.exceptions import ObjectDoesNotExist
 
 import json
+import random
 
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
-
 from django.utils import timezone
+from game.forms import ShootForm
+from game.models import Player, Game
 
 
-
-# Create your views here.
 def home(request):
     context = {}
     return render(request,'home.html',context)
 
-def register(request):
+def start_game(request):
+    #use session to record the game state, which is the user to whom the game belongs
     context = {}
-    return render(request,'register.html',context)
+    # Retrieve the user's ID from the session id, or generate a new one if it doesn't exist
+    #get a player player_id=session_key, which may does not exist
+    player_id = request.session.session_key
+    player, created = Player.objects.get_or_create(player_id=player_id)
+    
+    #assign new game to the player
+    #condition 1: if the player is already in a game which is not end, then return the game
+    #condition 2: if there's game waiting for a player, find a game that is waiting for a player
+    #condition 3: if there is no game waiting for a player, then create a new game and assign it to the player
+    game = None
+    try:
+        #condition 1 
+        player1_games = player.player1.filter(winner=None)
+        player2_games = player.player2.filter(winner=None)
+        if player1_games.exists() and player1_games.count()>0:
+            game = player1_games[0]
+        elif player2_games.exists() and player2_games.count()>0:
+            game = player2_games[0]
+        else:
+            #create a new game, assign shooter
+            game = Game(player1=player,current_shooter = player)
+            game.save()
+    except ObjectDoesNotExist:
+        print("object does not exist for player ",player_id)
 
-def login(request):
-    context = {}
-    return render(request,'login.html',context)
+    #the game is decided. then check if we need to wait for another player
+    if game.player2 is None or game.player1 is None:
+        #wait for another player
+        context['wait'] = True
+        context['game_id'] = game.id
+    else:
+        #start the game
+        context['wait'] = False
+        context['game_id'] = game.id
+        #assign the current shooter
+        if game.current_shooter is None:
+            game.current_shooter = game.player1
+            game.save()
+    #add info to context
+    if game.player1 is not None:
+        context['player1'] = game.player1.player_id
+    if game.player2 is not None:
+        context['player2'] = game.player2.player_id
+        #assign the cannon
+        # if game.player1 == player:
+        #     context['cannon'] = 1
+        # else:
+        #     context['cannon'] = 2
+    return JsonResponse(data=context)
 
-def logout(request):
+#when this user is the shooter, then return the form
+def get_form(request):
     context = {}
-    return render(request,'logout.html',context)
+    wind_speed = get_wind_speed_to_ground()
+    context['wind_speed'] = wind_speed
+    #shooter
+    player_id = request.session.session_key
+    player = Player.objects.get(player_id=player_id)
+    game = get_game_by_player(player)
+    if game.current_shooter.player_id == player_id:
+        context['shooter'] = 'Me'
+        context['form'] = ShootForm()
+    else:
+        context['shooter'] = 'Opponent'
+    return render(request,'shoot-form.html',context)
+
+#helper function for getting the current game by player, not history games
+#didnt check if the player must have current game
+def get_game_by_player(player):
+    try:
+        game = Game.objects.get(player1=player, winner=None)
+    except Game.DoesNotExist:
+        try:
+            game = Game.objects.get(player2=player, winner=None)
+        except Game.DoesNotExist:
+            game = None
+    return game
+
+#dt is the time interval between each point 
+def get_trajectory_data(request):
+    cannon,angle_to_cannon,velocity_to_cannon,wind_speed,dt = \
+        2,45,500,0,0.1
+    x = calculate_trajectory(cannon,angle_to_cannon,velocity_to_cannon,wind_speed,dt)
+    return x 
 
 #helper function for calculating trajectory points 
 #from the given angle and velocity
 #angle is between 0 and 90 degrees
 #velocity is between 0 and 100
 
-#dt is the time interval between each point 
-def get_trajectory_data(request):
-    cannon,angle_to_cannon,velocity_to_cannon,wind_speed,dt = \
-        1,45,500,0,0.1
-    x = calculate_trajectory(cannon,angle_to_cannon,velocity_to_cannon,wind_speed,dt)
-    
-    return x 
 def calculate_trajectory(cannon,angle_to_cannon,velocity_to_cannon,wind_speed,dt):
     #constants
     field = [2000,1000]
     cannon1_initial_positon = [500,0]
-    cannon2_initial_positon = [1500,1000]
+    cannon2_initial_positon = [1500,0]
     ball_diameter = 0.1 #meters
     ball_radius = ball_diameter/2
     ball_mass = 1 #kg

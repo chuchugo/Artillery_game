@@ -1,0 +1,19 @@
+{% extends "home.html" %}
+
+{% block shoot-form %}
+    <form class= "form" method="post" action="{% url 'home' %}">
+        <table>
+            {{form}}
+        </table>
+        {% csrf_token %}
+        
+        {% if form %}
+            <button type="submit" id="submit_button">Submit</button>
+        {% endif %}
+    </form>
+{% endblock %}
+
+{% block game-info%}
+    <div> wind speed: {{wind_speed}} </div>
+    <div> shooter: {{shooter}} </div>
+{% endblock %}
